@@ -1,0 +1,9 @@
+app router(newer way) v/s pages directory(older way)
+
+ADVANTAGES OF NEXTJS:
+-> Built-in Server-Side Rendering(SSR), Static Site Generation(SSG), and automatic code splitting result in faster load times and better performance
+-> SSR improves SEO
+-> Built-in routing, data fetching and caching
+
+CREATE NEXT APP: npx create-next-app@latest <File Name>
+
