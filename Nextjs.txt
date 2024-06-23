@@ -7,3 +7,42 @@ ADVANTAGES OF NEXTJS:
 
 CREATE NEXT APP: npx create-next-app@latest <File Name>
 
+
+1 APP ROUTER ::
+
+-> Whole code runs by-default only on the server & is send down to the actual application but if we want some code to run on client as well then we just need to add "use client" on top of that file.
+
+ROUTING:
+Folder based routing
+-> (1) Static Routes: 
+    - app -> page.tsx => home page (ie, localhost:3000)
+    - app -> 'cart' Folder -> page.tsx => /cart (ie, localhost:3000/cart)
+-> (2) Nested Routes:
+    - Nested routes created by nesting the folders
+    - app -> 'blog' folder -> 'first' folder and 'second' folder =>
+    localhost:3000/blog will render code written in app -> blog -> page.tsx
+    localhost:3000/blog/first will render code written in app -> blog -> first -> page.tsx
+    localhost:3000/blog/second will render code written in app -> blog -> second -> page.tsx
+-> (3) Dynamic Routes: 
+    -> same as nested routes but here, dynamic route is creating by using [], ie, square brackets while creating the nested folder.
+    - app -> products -> [productId] -> page.tsx:
+        export default function Page({ params }: { params: { productId: string } }) {
+            return <div>My Product: {params.dynamicId}</div>
+        }
+    then localhost:3000/products/boatRockerz400 => page will show text: "My Product: boatRockerz400"
+
+-> (4) Catch All Routes:
+    - [...<folderName>] creates a dynamic route which can be further nested infinitely.
+    - app -> products -> [...slug] -> page.tsx:
+    export default function Page( {params} : {params: {slug: string[]}}){
+        return (
+            <div>{params.slug.join(",")}</div>
+        )
+    }
+    then, localhost:3000/products/headphones/boat/on-ear => page will show text: "headphones,boat,on-ear"
+
+...........................................................
+
+-> loading.tsx file will render untill the page.tsx file is loading. (suspense wala code nahi likha hai)
+-> error.tsx file can be created to handle error. it must be "use client" type. it has a prop called 'reset' which can be used to retry loading the page.
+-> not-found.tsx will load if url route does not exist
