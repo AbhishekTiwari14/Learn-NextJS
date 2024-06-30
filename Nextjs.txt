@@ -5,14 +5,23 @@ ADVANTAGES OF NEXTJS:
 -> SSR improves SEO
 -> Built-in routing, data fetching and caching
 
+-> How does SSR solve the shortcomings of react?
+-> SSR => 1st/initial render (initial html) takes place on server, this optimizes (1) waterfalling in react: Next, BE & DB are on the same machine, hence saves time by decreasing roundtrips b/w client & server to 1 only. 
+
+NEXTJS/SSR FACTS:
+-> Only the initial render happens on server and further renders(for state change, etc.) takes place directly on the client.
+-> No access to browser constructs (lacal storage, window, etc.) and hooks.
+
 CREATE NEXT APP: npx create-next-app@latest <File Name>
 
-
-1 APP ROUTER ::
+...............
+APP ROUTER ::
+...............
 
 -> Whole code runs by-default only on the server & is send down to the actual application but if we want some code to run on client as well then we just need to add "use client" on top of that file.
+Note: to use hooks, page must be "use client"
 
-ROUTING:
+1 ROUTING:
 Folder based routing
 -> (1) Static Routes: 
     - app -> page.tsx => home page (ie, localhost:3000)
@@ -41,8 +50,40 @@ Folder based routing
     }
     then, localhost:3000/products/headphones/boat/on-ear => page will show text: "headphones,boat,on-ear"
 
-...........................................................
-
 -> loading.tsx file will render untill the page.tsx file is loading. (suspense wala code nahi likha hai)
 -> error.tsx file can be created to handle error. it must be "use client" type. it has a prop called 'reset' which can be used to retry loading the page.
 -> not-found.tsx will load if url route does not exist
+
+-> Route Groups: To create a folder which should be ommited in url path, use (), ex.)
+    (auth) -> login -> page.tsx => url: localhost:3000/login
+..............................................................
+
+2 LAYOUT:
+-> {children} component depends on the route.
+-> app -> layout.tsx: 
+    <body className={inter.className}>
+        <header>
+          HEADER
+        </header>
+        {children}
+        <footer>
+          FOOTER 
+        </footer>  
+      </body>
+    -> HEADER and FOOTER will render on all pages but {children} component will depend on route. ex. localhost:3000 => children = app->page.tsx ; localhost:3000/
+
+-> Nested Layout: same as nested routes. 
+
+.......................................................
+NAVIGATING: 
+
+-> Link Component is used to create hyperlinks (same as <a href = "">)
+ex. <Link href = "/about"> About </Link>  // clicking on this text will redirect to about page
+-> replace prop will delete history and on clicking backwards button, it will take to homepage
+    <Link href = "/products/boat" replace> after we reach 'boat' page, then on going back, we'll go straight to home and not /products page 
+
+-> 
+
+........................................................
+
+METADATA: 
