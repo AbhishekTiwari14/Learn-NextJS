@@ -50,12 +50,35 @@ Folder based routing
     }
     then, localhost:3000/products/headphones/boat/on-ear => page will show text: "headphones,boat,on-ear"
 
--> loading.tsx file will render untill the page.tsx file is loading. (suspense wala code nahi likha hai)
+-> (5) Parallel Routes: 
+    - @<folderName> creates a slot which is same as a component, the difference being isolation of states and further routing etc. as a slot works as a mini app in itself; it makes code more modular as compared to traditional way of creating components which leads to complex nesting.
+    - slots are passed as props and need not to be imported(as used to be for components)
+    - slots are not part of url
+
+-> Unmatched Routes for slots: let's say we have 3 slots for a particular url and slot s1 has a link to further routing, then on clicking that link, url will update but s2 and s3 will remain unaffected, but if we then reload the page, it will throw error 404 missing as s2 & s3 don't have a defualt ui, to avoid that:
+- default.tsx page will become fallback page for other slots     
+
+-> loading.tsx file will render untill the page.tsx file is loading. (suspense wala code nahi likhna padta)
 -> error.tsx file can be created to handle error. it must be "use client" type. it has a prop called 'reset' which can be used to retry loading the page.
 -> not-found.tsx will load if url route does not exist
 
 -> Route Groups: To create a folder which should be ommited in url path, use (), ex.)
     (auth) -> login -> page.tsx => url: localhost:3000/login
+
+(6) Intercepting Routes:
+-> allows to render to route as a overlay on current page. Ex.) photos page localhost:3000/photos: when clicking on a photo(say photo no. 2): new route: localhost:3000/photos/2 will display the photo as an overlay with bg being the photos page; but on directly visiting the link: photos/2 , we go straight to the page of that specefic photo
+
+-> convention: 
+ -(.) to match segments on the same level (above ex.) 
+ -(..) to match segments one level above (ex. app-> feed-> (..photo) & app->photo)
+ -(..)(..) to match segments two levels above
+ -(...) to match segments from the root app directory
+
+ -> Intercepting Routes can be used together with Parallel Routes to create modals. This allows you to solve common challenges when building modals, such as:
+- Making the modal content shareable through a URL.
+- Preserving context when the page is refreshed, instead of closing the modal.
+- Closing the modal on backwards navigation rather than going to the previous route.
+- Reopening the modal on forwards navigation.
 ..............................................................
 
 2 LAYOUT:
@@ -74,6 +97,9 @@ Folder based routing
 
 -> Nested Layout: same as nested routes. 
 
+-> template.tsx: same as layout.tsx but only difference is that when user navigates b/w routes that share a template, a new instance of component is mounted, DOM elements are recreated & state is refreshed/not preserved. 
+    ex. home -> nav mein searchbar pe kuch type kia, then kisi aur page mein chale gaye(usme bhi searchbar hai) to jo searchbar mein type kia tha vo blank ho jayega
+    
 .......................................................
 NAVIGATING: 
 
