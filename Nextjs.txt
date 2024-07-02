@@ -113,3 +113,146 @@ ex. <Link href = "/about"> About </Link>  // clicking on this text will redirect
 ........................................................
 
 METADATA: 
+
+.........................................................
+ROUTE HANDLERS: 
+
+-> Route Handlers are functions in nextjs using which we can create api endpoints and handle HTTP GET/POST/PUT/PATCH/DELETE/HEAD/OPTIONS Requests.
+
+-> GET: ex. app->api->route.ts:
+    export async function GET(){
+        return new  Response("This is a get request");
+    }
+    this will give response at: localhost:3000/api:  "This is a get request"
+
+-> POST: ex. same file: app->api->route.ts: 
+        export async function POST(request: Request) {
+        const input = await request.json();
+        const newData = { id: data1.length + 1, title: input.title };
+        data1.push(newData);
+        return new Response(JSON.stringify(newData), {
+            headers: { "Content-Type": "application/json" },
+            status: 201,
+        });
+        }
+    so on same url: localhost:3000/api: users request will be taken & the data(object) will be pushed to data1 array and we will get {id: <object no.> , title: <user input>} as response.
+
+-> PATCH: => upadate/ partial modification. ex. file: app->api->[id]->route.ts:
+        export async function PATCH(request: Request, { params } : {params: {id: string}}){
+            const body = await request.json();
+            const { title } = body;
+            const index = data1.findIndex((obj) => obj.id === parseInt(params.id));
+            data1[index].title = title;
+            return Response.json(data1[index]);
+        }   
+    so on route: localhost:3000/api/1 if we request: {"title": "mowgli"}, then it will update the title of object with id = 1 to mowgli in data1.
+
+-> DELETE: same file as of patch: api/[id] -> route.ts: 
+        export async function DELETE(request: Request, { params } : {params: {id: string}}){
+            const index = data1.findIndex((obj) => obj.id === parseInt(params.id));
+            const deletedObj = data1[index]
+            data1.splice(index, 1);
+            return Response.json(deletedObj);
+        } 
+    so on if we delete on localhost:3000/api/1, then object with id=1 will get deleted from data1 array.
+
+-> URL Query Parameters: on adding ?query=<searchQuery> to the url, we can add query to the url, ex. api-> seach -> route.ts: 
+        export async function GET(request: NextRequest) {
+        const searchParams = request.nextUrl.searchParams;
+        const query = searchParams.get("query");
+        console.log(query);
+        const SearchedObj = query? data1.filter(obj => obj.title.includes(query)) : data1[1];
+        return Response.json(SearchedObj);
+        }
+    url: localhost:3000/api/search?query=Dus will return object {id: 2, title: "Dusra"}
+
+-> Redirects in Route Handlers: ex. in file: api->route.ts
+        export async function GET(
+            _request: Request,
+            { params }: { params: { id: string } }
+        ) {
+            if (parseInt(params.id) > data1.length) {
+            redirect("/api");
+            }
+            const searchObj = data1.find(
+            (obj) => obj.id === parseInt(params.id)
+            );
+            return Response.json(searchObj);
+        }
+    Here,we search search for id which is not in data, we will get redirected to localhost:3000/api
+
+-> Headers in Route Handlers: represent metadata associalted with req & res.
+    - Request Headers: are sent by client to the  server. ex. 'user-agent' which tells server about browser & OS, 'accept' which identifies the content types(text/image/video) that client can process
+    & 'authorization'
+
+    - Response Headers: Server->Client. ex. 'Content-Type': tells about media type(json/application,text/html) of the response data.
+
+    - Reading Request Headers: (M1): 
+        const reqHeader = new Headers(request.headers)
+        c.log(reqHeader.get("<name of req. header, ex. Authorization>")) 
+    M2: 
+        const headerList = headers();
+        c.log(headerList.get("Authorization"));
+
+    - Creating Response Headers:
+        return new Response("API Data", {
+            Headers: {
+                "Content-Type": "text/html"
+            }  
+        })
+
+-> Cookies in Route Handlers: 
+    - cookies are small peices of data that server sends to client(browser) which it may store & send backto server with later requests.
+    -cookies are mainly used for:
+      1. session management like login & shopping creates
+      2. personalizations like user preference & theme
+
+    - setting cookie in header: M1: 
+        Header: {
+            Content-Type": "text/html",
+            "Set-Cookie": "theme=dark"
+        }
+
+        M2: cookies().set("theme", "dark");
+    
+    - reading cookie: M1: 
+        const theme = request.cookies.get("theme");
+        c.log(theme); // {name: "theme", value: "dark"}
+
+        M2: cookies().get("theme"); // {name: "theme", value: "dark", path: "/"}
+
+-> Caching in Route Handlers:
+    - Route Handlers are cached by default when using GET method with response object in nextjs 
+    -ex. app->api->cached->route.ts:
+        export async function GET(){
+            return Response.json({
+                time: new Date().toLocaleString()
+            });
+        }
+        Here, time will be cached in "BUILD" mode, ie, on reloading the route page, time will not update.
+
+    -How to Opt out of default caching? : 
+        M1: Add line: export const dynamic =  "force-dynamic" on top of cached->route.ts file.
+        M2: by using request object with the GET method
+        M3: by adding dynamic fxns. like headers() & cookies()
+        M4: by using any HTTP method other than GET
+
+-> Middlewares: is a feature using which we can intercept & control flow of requests & responses in app.
+    -It is used to do redirects, URL rewrites, auth, headers&cookie management, etc.
+    - Middleware allows to specify paths where it will be active by 2 methods:
+    ex. as soon as user enters url : localhost:3000/api, we want him to redirect to home page:
+       M1: src->middleware.ts:
+            export function middleware(request: NextRequest){
+                return NextResponse.redirect(new URL("/", request.url));
+            }
+
+            export const config = {
+                matcher: "/api",
+            };
+        
+        M2: same file src->middleware.ts:
+            export function middleware(request: NextRequest){
+                if(request.nextUrl.pathname === "/api"){
+                    return NextResponse.redirect(new URL("/", request.url));
+                }
+            }
