@@ -335,3 +335,66 @@ Interleaving SC & CC: using server component inside client component is not perm
 .................................................................
 DATA FETCHING:
 
+Basics: app->users->page.tsx:
+    type User = {
+        id: number,
+        name: string,
+        username: string,
+        email: string,
+        phone: string
+    }
+    export default async function UsersPage(){
+        const data = await fetch("https://jsonplaceholder.typicode.com/users");
+        const users = await data.json();
+        
+        return (
+            <div className="grid grid-cols-2 gap-2 p-4 bg-black">
+                {users.map((user: User) => (
+                    <div key={user.id} className="flex items-center justify-between p-4 bg-white">
+                        <div className="flex flex-col space-y-1">
+                            <h2>{user.name}</h2>
+                            <p>{user.username}</p>
+                        </div>
+                        <div className="flex flex-col space-y-1 items-end">
+                            <div className="text-md">{user.email}</div>
+                            <div className="text-md">{user.phone}</div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        )
+    }
+
+Data Caching: 
+->nextjs by-default caches the returned values of fetch in the Data Cache on the "server". It generally  improves performance, but there can be cases where we want to opt out of default caching (ex. for a data which is regularly getting updated, user will get cached data & not the updated data on further requests)
+
+Opting out of caching: 
+-> we can opt out of caching for a particular data by setting 'cache' option to 'no-store'. ex.
+    const data = await fetch("api link", {
+        cache: "no-store"
+    })
+
+-> advance scenarios: if on same file, we are making multiple fetch requests(to diff. urls), then make sure to write fetch code for requests you want to cache above those whom you want to opt out of caching bcoz in same file, as soon as nextjs encouters cache: "no-store" for any fetch request, it make all below fetch request non-cached as well OR add line *export const fetchCache = "default-cache"* to make sure only those request are not cached whom you have explicitly written for. 
+
+-> By-default, nextjs will cacher fetch request that occur before dynamic fxn.(cookies(),headers(),searchParams) are used & will not cache requests found after these dynamic fxns.
+
+Request Memoization: 
+-> technique that deduplicates requests for the same data withing a 'single render pass'
+-> for initial request, data is fetched from external source & result is stored in memory; for subsequent requests within the same render pass, result is retreived directly from memory, bypassing the  need to make request to server again
+-> when same data is needed in multiple components in a route, no need to do prop drilling.
+-> ex. when we make same detch request in both layout.jsx & page.jsx, then layout.jsx's request is made 1st & its result is stored in memory, now for page.jsx, request won;t me made again as data will be provided by memory.
+
+Time Based Data Revalidation: 
+-> strategy in which if a further request is made after a certain time period, cached data is ignored and this request is sent to server & new result is cached  
+-> to do so:
+    const data = await fetch("url", {
+        next: {
+            revalidate: 10, //10 => 10 seconds, so data is revalidated after every 10s
+        }
+    })
+-> writing export const revalidate = 10 on top of a file will make all requests on this page being revalidated after every 10s
+
+Client Side Data Fetching: can be done normally but to get benefits of caching, etc. use library: "Tanstack query"
+
+.............................................................
+
