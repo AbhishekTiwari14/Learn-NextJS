@@ -256,3 +256,82 @@ ROUTE HANDLERS:
                     return NextResponse.redirect(new URL("/", request.url));
                 }
             }
+
+.........................................................................
+RENDERING: 
+
+Rendering in react(CSR): Waterfall: involves 4 steps: 
+    1: Initial HTML file: has empty root div & reference to js bundle. It looks like: 
+        <html lang="en">
+            <head>
+                <meta charset="UTF-8" />
+                <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+                <title>React App</title>
+            </head>
+            <body>
+                <div id="root"></div>
+                <script src="bundle.js"></script>
+            </body>
+        </html>
+
+    2: Loading JavaScript Bundle: browser loads & executes the js bundle
+    3: Rendering DOM 4: Updating DOM/state  
+    -Drawbacks of CSR: (1) SEO: bcoz initial HTML file gives no info, (2) UX can suffer due to high load time as browser needs to download, parse & execute  js code before the user sees any meaningful content on page.
+
+SSR: server directly sends full html + js reference; so user gets static ui instantly but interactivity comes when browser downloads & executes js. This phase is called 'hydration'. 
+
+    -SSG(Static Site Generation): when page is highly static, ex. blog post, we directly have the page working instantly as it does'nt have much js to process.
+
+    -Drawbacks of SSR: ALL OR NOTHING WATERFALL:
+        1. having to load the fetch data for the entire page before starting to render it
+        2. hydration can only start once whole page is loaded
+        3. entire page must be hydrated(whole js file must be loaded & exxecuted), only after which interactivity of any component will work
+
+Suspense for SSR: to overcome above Drawbacks, nextjs provides us with 2 suspense features:
+    1. HTML streaming on the server: a component(which may have to show some fetched data) can be wrapped in <suspense </suspense>; doing so, will load HTML of all other components instantly & seperately load this component as soon as its data is fetched.
+    ex. <Header />
+        <suspense fallback = {spinner}> <Main /> <suspense>
+        <Footer /> 
+
+    2. Selective hydration on the client: code splitting is used(by default in nextjs) on Main component, this way hydration of other components will start withoout waiting for js of Main component to load. 
+
+React Server Components(RSC): 
+    -> Server Components: their code stays on the server & is never downloaded by browser. thes components take charge of data fetching & static rendering.
+        -> Benefits: (1) Reduced bundle size for browser, (2) enhanced security for these components, (3) these components are on same machine as DB, so faster fetching of data for them, (4) caching (5) faster page load (6) Imroved SEO.  
+
+    -> Client Components: are rendered once(initial render) on the server & then (all further renders) on the client.
+    -> by default, all components are server components untill you add "use client" on top of file
+
+-> RSC Loading Sequence: browser requests page->nextjs matches url to a server component & then instructs react to render that component->react renders the component & child components (also client component instructions) as RSC payload(special json format)-> nextjs uses RSC payload to generate HTML which is streamed fast as non-interactive UI to the user-> alongside nextjs streams RSC payload using which UI is progressively rendered->Final UI made->hydration starts->intereactive UI created.
+
+-> RSC Update Sequence: browser requests refetch of specefic UI(say, another route)->nextjs matches url to a server component & then instructs react to render that component->react renders the component as RSC payload->nextjs streams RSC payload to client->nextjs triggers route rerender->react does reconciliation(merges rendered output with existing components)
+
+Server Rendering Strategies: 
+(1) Static Rendering: 
+-> HTML is pre-generated (generated at build time) and RSC payload is created(& sent to client) for all components & js chunks are produced to client for hydration
+-> It is cached by a CDN & is served almost instantly to the user.
+-> As we navigate to another route, its HTML is already prefetched(nextjs preloads the route(s) in the background if the route/link is visible in user's viewport) and client uses its RSC payload & js chunks without any additional requests to the server 
+
+(2) Dynamic Rendering:
+-> routes are rendered for each user at request time
+-> it is useful when route has data personalized to the user or contians info at request time such as cookies or search params
+-> during rendering, it is a dynamic fxn.(cookies(), headers(), searchParams) is discovered, nextjs automatically switches to dynamic rendering that route
+
+(3) Streaming: 
+-> allows for progressive UI rendering from the server
+-> work is divided into chunks & streamed to client as soon as its ready
+-> this enables user to see parts of the pages immediately before the entire page is rendered  
+-> wrap the component(s) which may take more time to render with <suspense> & streaming is achieved
+
+Server-Only Code: 
+->it is the code that we want to be executed on server only & must not be sent to the client. ex. env vars, code that processes confidential data, etc.
+-> "server-only" package can be used to aviodd any chance of a file's code to be passed to client by just adding import "server-only" at top of file 
+-> similarly "client-only" package is there.
+
+Client Component Placement: client components are used to manage state & interactivity. If a component is made "client" component, then all its children/offsprings also become client components. So, it is recommended to position client components as low as possible in the component tree.
+
+Interleaving SC & CC: using server component inside client component is not permitted (as it will be treated as client component which it is not). Although, we can use SC inside CC by passing it as a prop.
+
+.................................................................
+DATA FETCHING:
+
