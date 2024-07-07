@@ -1,0 +1,275 @@
+1_AUTH_APP::
+
+- 1_auth_app-> .env.local file: 
+->to store MONGO_URI, TOKEN_SECRET, DOMAIN, etc. secret data; 
+-> these can be accessed as process.env.MONGO_URI
+
+- Database modelling using mongoose:        npm i mongoose
+-> involves 4 things:
+1. designing a schema: ex. 
+    - src->models-> userModel.js: 
+        import mongoose from "mongoose";
+        const userSchema = new mongoose.Schema({
+            username: {
+                type: String,
+                required: [true, "Please provide a username"],
+                unique: true,
+            },
+            email: {
+                type: String,
+                required: [true, "Please provide a email"],
+                unique: true,
+            },
+            password: {
+                type: String,
+                required: [true, "Please provide a password"],
+            },
+            isVerfied: {
+                type: Boolean,
+                default: false,
+            },
+            isAdmin: {
+                type: Boolean,
+                default: false,
+            },
+            forgotPasswordToken: String,
+            forgotPasswordTokenExpiry: Date,
+            verifyToken: String,
+            verifyTokenExpiry: Date,
+        })
+
+2. creating a data 'model' from that schema : ex.
+        const User = mongoose.models.users || mongoose.model("users", userSchema); //model name = users
+        export default User;
+
+3. Saving model data on DB: ex. await User.save();
+4. Querying data from DB: ex. await User.find(); //will return all documents of users modelling
+
+- Connecting to DB: 
+-> Nodejs establishes direct(persistent) connection with DB while nextjs establishes edge connection with DB, which is done by deploying serverless fxns. to edge networks. This basically means that Nodejs has a DB server located at a particular place while in nextjs as soon as the request is made, connection is established with a random server nearby & no persistent connection with that server is kept.
+
+-> src->dbConfig->dbConfig.ts:
+        import mongoose from "mongoose";
+        export async function connect(){
+            try {
+                mongoose.connect(process.env.MONGO_URI!);
+                const connection = mongoose.connection;
+                connection.on('connected', () => {
+                    console.log('MongoDB connected');    
+                })
+                connection.on("error", (err) => {
+                    console.log('MongoDB connection error: ' + err);
+                    process.exit();
+                })
+            } catch (error) {
+                console.log(`something went wrong while connecting to DB: ${error}`);      
+            }
+        }
+& invoke this connect fxn. in whichever route you want to connect to DB.
+
+- Creating signup route: api->users->signup->route.ts:
+    import {connect} from "@/dbConfig/dbConfig" 
+        import { NextRequest, NextResponse } from "next/server";
+        import User from "@/models/userModel"
+        import bcryptjs from 'bcryptjs'
+
+        connect();
+
+        export async function POST(request: NextRequest){
+            try {
+                const reqBody = await request.json();
+                const {username, email, password} = reqBody;
+
+                const user = await User.findOne({email});
+                if(user){
+                    return NextResponse.json({error: "user already exists"}, {status: 400})
+                }
+                //hashing password using bcryptjs
+                const salt = await bcryptjs.genSalt(10);
+                const hashedPassword = await bcryptjs.hash(password, salt);
+
+                const newUser = new User({
+                    username,
+                    email,
+                    password: hashedPassword
+                })
+
+                const savedUser = await newUser.save();
+                console.log(savedUser);
+
+                //send verification email
+                await sendEmail({email, emailType: "VERIFY", userId: savedUser._id})
+
+                return NextResponse.json({
+                    message: "User created successfully",
+                    success: true,
+                    savedUser
+                })
+            } catch (error: any) {
+                return  NextResponse.json({error: error.message}, {status: 500})
+            }
+        }
+
+- Creating mail sending facility using Nodemailer & :       npm i Nodemailer
+-> this will be used for 2 purposes: 1. to verify user's email on signup, 2. to send forgotPassword link
+-> src->utils->mailer.ts:
+    import nodemailer from 'nodemailer';
+    import User from "@/models/userModel";
+    import bcryptjs from 'bcryptjs';
+    export const sendEmail = async({email, emailType, userId}:any) => {
+        try {
+            // create a hashed token
+            const hashedToken = await bcryptjs.hash(userId.toString(), 10)
+
+            if (emailType === "VERIFY") {
+            await User.findByIdAndUpdate(userId, {
+                $set: {
+                    verifyToken: hashedToken,
+                     verifyTokenExpiry: Date.now() + 3600000
+                }})
+            } else if (emailType === "RESET"){
+                await User.findByIdAndUpdate(userId, {
+                    $set: { 
+                        forgotPasswordToken: hashedToken, 
+                        forgotPasswordTokenExpiry: Date.now() + 3600000
+                    }})
+            }
+
+            var transport = nodemailer.createTransport({
+                host: "sandbox.smtp.mailtrap.io",
+                port: 2525,
+                auth: {
+                user: process.env.MAILTRAP_USER,
+                pass: process.env.MAILTRAP_PASSWORD
+                //TODO: add these credentials to .env file
+                }
+            });
+
+
+            const mailOptions = {
+                from: 'hitesh@gmail.com',
+                to: email,
+                subject: emailType === "VERIFY" ? "Verify your email" : "Reset your password",
+                html: `<p>Click <a href="${process.env.DOMAIN}/verifyemail?token=${hashedToken}">here</a> to ${emailType === "VERIFY" ? "verify your email" : "reset your password"}
+                or copy and paste the link below in your browser. <br> ${process.env.DOMAIN}/verifyemail?token=${hashedToken}
+                </p>`
+            }
+
+            const mailresponse = await transport.sendMail
+            (mailOptions);
+            return mailresponse;
+
+        } catch (error:any) {
+            throw new Error(error.message);
+        }
+    }
+
+-MongoDB setting: go to mongodb website and create new cluster & get mongo uri and save it in .env.local
+
+- Verifying user's email Id for new signup: in api->users->signup->route.ts above, we have sent user a mail when he signs up, this mail sends user a link carrying verification token(saved in our db), so we want that when user clicks the link, it is directed to a verify page where he can verify his email by clicking verify button. On clicking the button, we want user's post request carrying the token and we match the token with the token saved in db (& also check expiry time), & if it matches, we verify the user. We do so in api->users->verify->verifyemail-<route.ts:
+        import {connect} from "@/dbConfig/dbConfig"
+        import User from "@/models/userModel";
+        import { NextRequest, NextResponse } from "next/server";
+        connect();
+        export async function POST(request: NextRequest){
+            try {
+                const reqBody = await request.json();
+                const { token } = reqBody;
+
+                const user = await User.findOne({verifyToken: token, verifyTokenExpiry: {$gt: Date.now()}}); //gt => greater than
+                if(!user){
+                    return NextResponse.json({error : "Invalid token"}, {status: 400})
+                }
+                console.log(user);
+                user.isVerfied = true;
+                user.verifyToken = undefined;
+                user.verifyTokenExpiry = undefined;
+
+                await user.save();
+                return NextResponse.json({
+                    message: "User Verified Successfully",
+                    success: true
+                }, { status: 500})
+
+            } catch (error: any) {
+                return NextResponse.json({error: error.message}, {status: 500})
+            }
+        }
+
+- JWT(json web token): 
+-> is used to authorize(not authenticate) user, ie, once the user has logged in, when he makes further requests(let's say, to access a protected route like user profile page), we want to check if this is the same user that logged in. 
+-> when user logs in, we generate a token(part of which is the secret key which only server stores) & payload & store them in cookies(in browser), & when user makes further request, this stored token is sent with the request & is matched with secret key stored in server, if it matches, user's request is fulfiiled.
+in api->users->login->route.ts:                         npm i jsonwebtoken
+
+connect();
+export async function POST(request: NextRequest){
+    const reqBody = await request.json();
+    const {email, password} = reqBody;
+    const user = await User.findOne({email});
+
+    if(!user){
+        return NextResponse.json({error: "user with given email does not exists"}, {status: 400})
+    }
+    const validPassword = await bcryptjs.compare(password, user.password);
+    if(!validPassword){
+        return NextResponse.json({error: "Wrong password"}, {status: 400})
+    } 
+    // creating & storing JWT in browesr cookies
+    const tokenData = {
+        id: user._id,
+        username: user.username,
+        email: user.email
+    };
+
+    const token = jwt.sign(tokenData, process.env.TOKEN_SECRET!, {expiresIn: '1d'});
+
+    const response = NextResponse.json({
+        message: "Logged in successfully",
+        success: true
+    })
+
+    response.cookies.set("token", token, {
+        httpOnly: true   //will make sure that user cannot modify token
+    })
+}
+
+- when user logs out, we just need to clean up token from browser cookies; api->users->logout->route.ts:
+        export async function GET(request: NextRequest){
+            const response = NextResponse.json({
+                message: "Logged out successfully",
+                success: true
+            });
+            response.cookies.set("token", "", {
+                httpOnly: true,
+                expires: Date.now(0)
+            });
+        }
+
+- Retreiving data/payload from jwt: utils->getdatafromjwt.ts:
+        export const getdatafromjwt = (request: NextRequest) => {
+            try {
+                const token = request.cookies.get("token")?.value || "";
+                const decodedToken: any = jwt.verify(token, process.env.TOKEN_SECRET!);
+                return decodedToken.id;   
+            } catch (error: any) {
+                throw new Error(error.message);
+            }
+        }
+
+- api->users->me->route.ts:
+        export async function POST(request: NextRequest){
+            const userId = await getdatafromjwt(request);
+            const user = await User.findOne({_id: userId}).select("-password"); //password ko chorr kar baki data de do
+            if(!user){
+                throw new Error("user not found");
+            }
+            return NextResponse.json({
+                message: "user found",
+                data: user
+            })
+        }
+    
+..............................................................
+FRONTEND: 
+
+- 
